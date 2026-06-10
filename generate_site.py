@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import requests
+import json
 
 APP_ID = os.environ.get('FEISHU_APP_ID')
 APP_SECRET = os.environ.get('FEISHU_APP_SECRET')
@@ -19,61 +20,55 @@ def get_table_records(token):
     response = requests.get(url, headers=headers)
     return response.json()
 
-def generate_journal_entries(records, section):
+def get_image_url_from_token(token, file_token):
+    """通过文件令牌获取图片URL"""
+    url = f"https://open.feishu.cn/open-apis/drive/v1/medias/{file_token}/download"
+    headers = {"Authorization": f"Bearer {token}"}
+    response = requests.get(url, headers=headers, allow_redirects=False)
+    if response.status_code == 302:
+        return response.headers.get('Location', '')
+    return ""
+
+def extract_image_url(token, image_value):
+    """解析飞书表格中的图片字段"""
+    if not image_value:
+        return ""
+    
+    try:
+        # 尝试解析为 JSON（飞书图片字段格式）
+        image_data = json.loads(image_value)
+        if isinstance(image_data, list) and len(image_data) > 0:
+            # 优先使用 url 字段
+            if 'url' in image_data[0] and image_data[0]['url']:
+                return image_data[0]['url']
+            # 如果没有 url，尝试使用 file_token 获取
+            if 'file_token' in image_data[0]:
+                return get_image_url_from_token(token, image_data[0]['file_token'])
+        return ""
+    except (json.JSONDecodeError, TypeError):
+        # 如果不是 JSON，直接作为 URL 使用
+        return image_value
+
+# ... 其他函数 ...
+
+def generate_journal_entries(records, token, section):
     entries = [r for r in records if r.get('section') == section]
     html = ""
     for entry in entries:
+        image_url = extract_image_url(token, entry.get('image', ''))
         html += f"""<article class="journal-entry">
             <div class="journal-date">
                 <span class="date-day">{entry.get('date', '1')}</span>
             </div>
             <div class="journal-content journal-content-block">
                 <h3>{entry.get('title', '')}</h3>
-                {f'<img src="{entry.get("image", "")}" alt="" class="journal-image">' if entry.get('image') else ''}
+                {f'<img src="{image_url}" alt="" class="journal-image">' if image_url else ''}
                 <p>{entry.get('desc', '')}</p>
             </div>
         </article>"""
     return html
 
-def generate_travel_cards(records):
-    entries = [r for r in records if r.get('section') == '行・足迹']
-    html = ""
-    for entry in entries:
-        html += f"""<div class="travel-card">
-            <img src="{entry.get('image', '')}" alt="{entry.get('title', '')}">
-        </div>"""
-    return html
-
-def generate_read_watch_cards(records):
-    entries = [r for r in records if r.get('section') == '阅・视界']
-    html = ""
-    for entry in entries:
-        html += f"""<article class="card">
-            <div class="card-image">
-                <img src="{entry.get('image', '')}" alt="">
-            </div>
-            <div class="card-meta">{entry.get('meta', '')}</div>
-            <h3 class="card-title">{entry.get('title', '')}</h3>
-            <p class="card-desc">{entry.get('desc', '')}</p>
-        </article>"""
-    return html
-
-def generate_thought_entries(records):
-    entries = [r for r in records if r.get('section') == '思・杂谈']
-    html = ""
-    for entry in entries:
-        html += f"""<article class="journal-entry">
-            <div class="journal-date">
-                <span class="date-day">{entry.get('date', '1')}</span>
-            </div>
-            <div class="journal-content">
-                <h3>{entry.get('title', '')}</h3>
-                <p>{entry.get('desc', '')}</p>
-            </div>
-        </article>"""
-    return html
-
-def generate_html(data):
+def generate_html(data, token):
     records = []
     if "valueRange" in data.get("data", {}):
         headers = data["data"]["valueRange"]["values"][0] if data["data"]["valueRange"]["values"] else []
@@ -209,7 +204,7 @@ def generate_html(data):
         <div class="container">
             <h2>家・时光</h2>
             <div class="journal-list">
-                {generate_journal_entries(records, '家・时光')}
+                {generate_journal_entries(records, token, '家・时光')}
             </div>
         </div>
     </section>
@@ -218,7 +213,7 @@ def generate_html(data):
         <div class="container">
             <h2>行・足迹</h2>
             <div class="travel-grid">
-                {generate_travel_cards(records)}
+                {generate_travel_cards(records, token)}
             </div>
         </div>
     </section>
@@ -227,7 +222,7 @@ def generate_html(data):
         <div class="container">
             <h2>阅・视界</h2>
             <div class="grid-cards">
-                {generate_read_watch_cards(records)}
+                {generate_read_watch_cards(records, token)}
             </div>
         </div>
     </section>
@@ -255,7 +250,7 @@ def generate_html(data):
 if __name__ == "__main__":
     token = get_feishu_token()
     data = get_table_records(token)
-    html = generate_html(data)
+    html = generate_html(data, token)
     
     with open('index.html', 'w', encoding='utf-8') as f:
         f.write(html)
