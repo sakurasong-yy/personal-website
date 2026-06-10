@@ -5,12 +5,17 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write  # 添加写入权限
+
 jobs:
   update-site:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -32,7 +37,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add index.html
-          git commit -m "Update site from Feishu" -a || echo "No changes"
+          git commit -m "Update site from Feishu" -a || echo "No changes to commit"
 
       - name: Push changes
         uses: ad-m/github-push-action@master
