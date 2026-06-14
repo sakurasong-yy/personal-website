@@ -5,17 +5,12 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
-permissions:
-  contents: write  # 添加写入权限
-
 jobs:
   update-site:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # 获取完整历史
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,7 +24,8 @@ jobs:
         env:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
-          FEISHU_TABLE_ID: ${{ secrets.FEISHU_TABLE_ID }}
+          FEISHU_APP_TOKEN: ${{ secrets.FEISHU_APP_TOKEN }}
+          FEISHU_BITABLE_TABLE_ID: ${{ secrets.FEISHU_BITABLE_TABLE_ID }}
         run: python generate_site.py
 
       - name: Commit changes
@@ -37,7 +33,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add index.html
-          git commit -m "Update site from Feishu" -a || echo "No changes to commit"
+          git commit -m "Update site from Feishu" -a || echo "No changes"
 
       - name: Push changes
         uses: ad-m/github-push-action@master
