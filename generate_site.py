@@ -8,6 +8,9 @@ FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET')
 FEISHU_APP_TOKEN = os.environ.get('FEISHU_APP_TOKEN')
 FEISHU_BITABLE_TABLE_ID = os.environ.get('FEISHU_BITABLE_TABLE_ID')
 
+# 缓存图片 URL，避免重复请求
+IMAGE_URL_CACHE = {}
+
 
 def log(message):
     print(f"[DEBUG] {message}")
@@ -37,6 +40,37 @@ def get_feishu_token():
     except Exception as e:
         log(f"ERROR: 获取 token 异常: {e}")
         sys.exit(1)
+
+
+def get_image_preview_url(file_tokens, token):
+    """获取飞书图片的预览 URL"""
+    # 使用缓存
+    cache_key = ",".join(sorted(file_tokens))
+    if cache_key in IMAGE_URL_CACHE:
+        return IMAGE_URL_CACHE[cache_key]
+
+    url = "https://open.feishu.cn/open-apis/drive/v1/medias/batch_get_tmp_download_url"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    data = {"file_tokens": file_tokens}
+
+    try:
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("code") != 0:
+            log(f"ERROR: 获取图片预览 URL 失败: {result}")
+            return {}
+
+        url_map = result.get("data", {}).get("tmp_download_urls", {})
+        IMAGE_URL_CACHE[cache_key] = url_map
+        return url_map
+    except Exception as e:
+        log(f"ERROR: 获取图片预览 URL 异常: {e}")
+        return {}
 
 
 def get_bitable_records(token):
@@ -85,20 +119,47 @@ def field_value(record, field_name):
         if len(value) > 0 and isinstance(value[0], dict):
             attachment = value[0]
             # 优先使用直接返回的 URL
+            if "tmp_url" in attachment:
+                return attachment["tmp_url"]
             if "url" in attachment:
                 return attachment["url"]
             if "download_url" in attachment:
                 return attachment["download_url"]
             if "preview_url" in attachment:
                 return attachment["preview_url"]
-            # 如果只有 file_token，生成飞书的预览 URL
-            if "file_token" in attachment:
-                file_token = attachment.get("file_token")
-                # 飞书预览 URL（带认证参数）
-                return f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/preview/"
         return str(value[0]) if len(value) == 1 else ", ".join(str(v) for v in value)
 
     return str(value)
+
+
+def process_image_urls(records, token):
+    """处理所有记录的图片字段，获取临时预览 URL"""
+    all_file_tokens = []
+
+    # 收集所有图片的 file_token
+    for record in records:
+        image_value = record.get("fields", {}).get("image")
+        if image_value and isinstance(image_value, list):
+            for attachment in image_value:
+                if isinstance(attachment, dict) and "file_token" in attachment:
+                    all_file_tokens.append(attachment["file_token"])
+
+    if not all_file_tokens:
+        return
+
+    log(f"正在获取 {len(all_file_tokens)} 个图片的预览 URL...")
+    url_map = get_image_preview_url(all_file_tokens, token)
+    log(f"✓ 成功获取 {len(url_map)} 个预览 URL")
+
+    # 更新记录中的图片 URL
+    for record in records:
+        image_value = record.get("fields", {}).get("image")
+        if image_value and isinstance(image_value, list):
+            for attachment in image_value:
+                if isinstance(attachment, dict) and "file_token" in attachment:
+                    file_token = attachment["file_token"]
+                    if file_token in url_map:
+                        attachment["tmp_url"] = url_map[file_token]
 
 
 def generate_journal_entries(records, section):
@@ -354,13 +415,11 @@ if __name__ == "__main__":
     # 从多维表格获取数据
     records = get_bitable_records(token)
 
+    # 处理图片 URL
+    process_image_urls(records, token)
+
     # 输出记录信息（用于调试）
     if records:
-        log(f"第一条记录的字段: {list(records[0].get('fields', {}).keys())}")
-        first_record = records[0].get("fields", {})
-        if "image" in first_record:
-            log(f"第一条记录的 image 字段值: {first_record['image']}")
-        log(f"第一条记录的 section 值: {field_value(records[0], 'section')}")
         log(f"第一条记录的 image 值: {field_value(records[0], 'image')}")
 
     # 生成 HTML
