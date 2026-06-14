@@ -2,11 +2,15 @@
 import os
 import requests
 import sys
+import base64
 
 FEISHU_APP_ID = os.environ.get('FEISHU_APP_ID')
 FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET')
 FEISHU_APP_TOKEN = os.environ.get('FEISHU_APP_TOKEN')
 FEISHU_BITABLE_TABLE_ID = os.environ.get('FEISHU_BITABLE_TABLE_ID')
+
+# 缓存图片的 base64 编码
+IMAGE_BASE64_CACHE = {}
 
 
 def log(message):
@@ -69,50 +73,48 @@ def get_bitable_records(token):
         sys.exit(1)
 
 
-def get_image_preview_url(file_token, token):
-    """获取图片的预览 URL（使用 POST 方法）"""
-    url = f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/preview/"
+def download_image_as_base64(file_token, token):
+    """下载飞书图片并转换为 base64"""
+    if file_token in IMAGE_BASE64_CACHE:
+        return IMAGE_BASE64_CACHE[file_token]
+
+    url = f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/download"
     headers = {
         "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "type": "image",
-        "width": 1200,
-        "height": 1200
     }
 
     try:
-        response = requests.post(url, headers=headers, json=data)
-        log(f"  Response status: {response.status_code}")
-        log(f"  Response headers: {dict(response.headers)}")
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
 
-        # 尝试解析 JSON
-        try:
-            result = response.json()
-            log(f"  Response body: {result}")
-        except:
-            log(f"  Response is not JSON, raw text: {response.text[:200]}")
+        # 获取图片数据
+        image_data = response.content
 
-        result = response.json()
-        if result.get("code") != 0:
-            log(f"ERROR: 获取图片预览 URL 失败: {result}")
-            return ""
+        # 转换为 base64
+        base64_data = base64.b64encode(image_data).decode('utf-8')
 
-        # 飞书返回的预览 URL
-        preview_url = result.get("data", {}).get("preview_url", "")
-        if not preview_url:
-            # 尝试其他可能的字段
-            preview_url = result.get("data", {}).get("url", "")
+        # 确定图片类型
+        content_type = response.headers.get('Content-Type', 'image/png')
+        if 'image/jpeg' in content_type or 'image/jpg' in content_type:
+            mime_type = 'image/jpeg'
+        elif 'image/webp' in content_type:
+            mime_type = 'image/webp'
+        elif 'image/gif' in content_type:
+            mime_type = 'image/gif'
+        else:
+            mime_type = 'image/png'
 
-        return preview_url
+        data_url = f"data:{mime_type};base64,{base64_data}"
+        IMAGE_BASE64_CACHE[file_token] = data_url
+
+        return data_url
     except Exception as e:
-        log(f"ERROR: 获取图片预览 URL 异常: {e}")
+        log(f"ERROR: 下载图片异常: {e}")
         return ""
 
 
-def process_image_urls(records, token):
-    """处理所有记录的图片字段，获取临时预览 URL"""
+def process_images(records, token):
+    """处理所有记录的图片字段，转换为 base64"""
     unique_tokens = set()
 
     # 收集所有图片的 file_token（去重）
@@ -126,36 +128,18 @@ def process_image_urls(records, token):
     if not unique_tokens:
         return
 
-    log(f"正在获取 {len(unique_tokens)} 个图片的预览 URL...")
+    log(f"正在下载 {len(unique_tokens)} 个图片...")
 
-    # 只处理第一个图片用于调试
-    first_token = list(unique_tokens)[0]
-    log(f"测试第一个图片的 file_token: {first_token}")
-    preview_url = get_image_preview_url(first_token, token)
-    if preview_url:
-        log(f"✓ 成功获取预览 URL: {preview_url}")
-
-    # 暂时只处理第一个
-    url_map = {}
+    # 逐个下载并转换为 base64
     for file_token in unique_tokens:
-        preview_url = get_image_preview_url(file_token, token)
-        if preview_url:
-            url_map[file_token] = preview_url
+        data_url = download_image_as_base64(file_token, token)
+        if data_url:
+            log(f"✓ {file_token[:20]}... -> {len(data_url)} 字符")
 
-    log(f"✓ 成功获取 {len(url_map)} 个预览 URL")
-
-    # 更新记录中的图片 URL
-    for record in records:
-        image_value = record.get("fields", {}).get("image")
-        if image_value and isinstance(image_value, list):
-            for attachment in image_value:
-                if isinstance(attachment, dict) and "file_token" in attachment:
-                    file_token = attachment["file_token"]
-                    if file_token in url_map:
-                        attachment["public_url"] = url_map[file_token]
+    log(f"✓ 完成图片处理")
 
 
-def field_value(record, field_name):
+def field_value(record, field_name, token=None):
     """从多维表格记录中获取字段值，支持不同类型"""
     fields = record.get("fields", {})
     value = fields.get(field_name)
@@ -170,13 +154,18 @@ def field_value(record, field_name):
         # 处理附件类型（图片等）
         if len(value) > 0 and isinstance(value[0], dict):
             attachment = value[0]
-            # 优先使用处理后的公共 URL
-            if "public_url" in attachment and attachment["public_url"]:
-                return attachment["public_url"]
-            # 然后使用 tmp_url
+            # 检查是否已缓存 base64
+            if "base64_url" in attachment:
+                return attachment["base64_url"]
+            # 检查是否有 file_token，转换为 base64
+            if "file_token" in attachment and token:
+                file_token = attachment["file_token"]
+                data_url = download_image_as_base64(file_token, token)
+                attachment["base64_url"] = data_url
+                return data_url
+            # 降级方案：使用 tmp_url 或 url
             if "tmp_url" in attachment:
                 return attachment["tmp_url"]
-            # 然后使用 url
             if "url" in attachment:
                 return attachment["url"]
         return str(value[0]) if len(value) == 1 else ", ".join(str(v) for v in value)
@@ -184,14 +173,14 @@ def field_value(record, field_name):
     return str(value)
 
 
-def generate_journal_entries(records, section):
-    entries = [r for r in records if field_value(r, 'section') == section]
+def generate_journal_entries(records, token, section):
+    entries = [r for r in records if field_value(r, 'section', token) == section]
     html = ""
     for entry in entries:
-        image = field_value(entry, 'image')
-        date = field_value(entry, 'date')
-        title = field_value(entry, 'title')
-        desc = field_value(entry, 'desc')
+        image = field_value(entry, 'image', token)
+        date = field_value(entry, 'date', token)
+        title = field_value(entry, 'title', token)
+        desc = field_value(entry, 'desc', token)
 
         html += f"""<article class="journal-entry">
             <div class="journal-date">
@@ -206,26 +195,26 @@ def generate_journal_entries(records, section):
     return html
 
 
-def generate_travel_cards(records):
-    entries = [r for r in records if field_value(r, 'section') == '行・足迹']
+def generate_travel_cards(records, token):
+    entries = [r for r in records if field_value(r, 'section', token) == '行・足迹']
     html = ""
     for entry in entries:
-        image = field_value(entry, 'image')
-        title = field_value(entry, 'title')
+        image = field_value(entry, 'image', token)
+        title = field_value(entry, 'title', token)
         html += f"""<div class="travel-card">
             <img src="{image}" alt="{title}">
         </div>"""
     return html
 
 
-def generate_read_watch_cards(records):
-    entries = [r for r in records if field_value(r, 'section') == '阅・视界']
+def generate_read_watch_cards(records, token):
+    entries = [r for r in records if field_value(r, 'section', token) == '阅・视界']
     html = ""
     for entry in entries:
-        image = field_value(entry, 'image')
-        meta = field_value(entry, 'meta')
-        title = field_value(entry, 'title')
-        desc = field_value(entry, 'desc')
+        image = field_value(entry, 'image', token)
+        meta = field_value(entry, 'meta', token)
+        title = field_value(entry, 'title', token)
+        desc = field_value(entry, 'desc', token)
         html += f"""<article class="card">
             <div class="card-image">
                 <img src="{image}" alt="">
@@ -237,13 +226,13 @@ def generate_read_watch_cards(records):
     return html
 
 
-def generate_thought_entries(records):
-    entries = [r for r in records if field_value(r, 'section') == '思・杂谈']
+def generate_thought_entries(records, token):
+    entries = [r for r in records if field_value(r, 'section', token) == '思・杂谈']
     html = ""
     for entry in entries:
-        date = field_value(entry, 'date')
-        title = field_value(entry, 'title')
-        desc = field_value(entry, 'desc')
+        date = field_value(entry, 'date', token)
+        title = field_value(entry, 'title', token)
+        desc = field_value(entry, 'desc', token)
         html += f"""<article class="journal-entry">
             <div class="journal-date">
                 <span class="date-day">{date}</span>
@@ -256,7 +245,7 @@ def generate_thought_entries(records):
     return html
 
 
-def generate_html(records):
+def generate_html(records, token):
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -383,7 +372,7 @@ def generate_html(records):
         <div class="container">
             <h2>家・时光</h2>
             <div class="journal-list">
-                {generate_journal_entries(records, '家・时光')}
+                {generate_journal_entries(records, token, '家・时光')}
             </div>
         </div>
     </section>
@@ -392,7 +381,7 @@ def generate_html(records):
         <div class="container">
             <h2>行・足迹</h2>
             <div class="travel-grid">
-                {generate_travel_cards(records)}
+                {generate_travel_cards(records, token)}
             </div>
         </div>
     </section>
@@ -401,7 +390,7 @@ def generate_html(records):
         <div class="container">
             <h2>阅・视界</h2>
             <div class="grid-cards">
-                {generate_read_watch_cards(records)}
+                {generate_read_watch_cards(records, token)}
             </div>
         </div>
     </section>
@@ -410,7 +399,7 @@ def generate_html(records):
         <div class="container">
             <h2>思・杂谈</h2>
             <div class="journal-list">
-                {generate_thought_entries(records)}
+                {generate_thought_entries(records, token)}
             </div>
         </div>
     </section>
@@ -437,15 +426,11 @@ if __name__ == "__main__":
     # 从多维表格获取数据
     records = get_bitable_records(token)
 
-    # 处理图片 URL
-    process_image_urls(records, token)
-
-    # 输出记录信息（用于调试）
-    if records:
-        log(f"第一条记录的 image 值: {field_value(records[0], 'image')}")
+    # 处理图片：下载并转换为 base64
+    process_images(records, token)
 
     # 生成 HTML
-    html = generate_html(records)
+    html = generate_html(records, token)
 
     # 写入文件
     with open('index.html', 'w', encoding='utf-8') as f:
