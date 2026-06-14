@@ -8,9 +8,6 @@ FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET')
 FEISHU_APP_TOKEN = os.environ.get('FEISHU_APP_TOKEN')
 FEISHU_BITABLE_TABLE_ID = os.environ.get('FEISHU_BITABLE_TABLE_ID')
 
-# 缓存图片 URL，避免重复请求
-IMAGE_URL_CACHE = {}
-
 
 def log(message):
     print(f"[DEBUG] {message}")
@@ -40,37 +37,6 @@ def get_feishu_token():
     except Exception as e:
         log(f"ERROR: 获取 token 异常: {e}")
         sys.exit(1)
-
-
-def get_image_preview_url(file_tokens, token):
-    """获取飞书图片的预览 URL"""
-    # 使用缓存
-    cache_key = ",".join(sorted(file_tokens))
-    if cache_key in IMAGE_URL_CACHE:
-        return IMAGE_URL_CACHE[cache_key]
-
-    url = "https://open.feishu.cn/open-apis/drive/v1/medias/batch_get_tmp_download_url"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    data = {"file_tokens": file_tokens}
-
-    try:
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        result = response.json()
-
-        if result.get("code") != 0:
-            log(f"ERROR: 获取图片预览 URL 失败: {result}")
-            return {}
-
-        url_map = result.get("data", {}).get("tmp_download_urls", {})
-        IMAGE_URL_CACHE[cache_key] = url_map
-        return url_map
-    except Exception as e:
-        log(f"ERROR: 获取图片预览 URL 异常: {e}")
-        return {}
 
 
 def get_bitable_records(token):
@@ -103,6 +69,71 @@ def get_bitable_records(token):
         sys.exit(1)
 
 
+def get_file_preview_url(file_token, token):
+    """获取单个文件的预览 URL"""
+    url = f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/preview/"
+    headers = {
+        "Authorization": f"Bearer {token}",
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("code") != 0:
+            log(f"ERROR: 获取文件预览 URL 失败: {result}")
+            return ""
+
+        # 飞书返回的预览 URL 格式
+        preview_url = result.get("data", {}).get("preview_url", "")
+        if not preview_url:
+            # 尝试其他可能的字段
+            preview_url = result.get("data", {}).get("url", "")
+
+        return preview_url
+    except Exception as e:
+        log(f"ERROR: 获取文件预览 URL 异常: {e}")
+        return ""
+
+
+def process_image_urls(records, token):
+    """处理所有记录的图片字段，获取临时预览 URL"""
+    unique_tokens = set()
+
+    # 收集所有图片的 file_token（去重）
+    for record in records:
+        image_value = record.get("fields", {}).get("image")
+        if image_value and isinstance(image_value, list):
+            for attachment in image_value:
+                if isinstance(attachment, dict) and "file_token" in attachment:
+                    unique_tokens.add(attachment["file_token"])
+
+    if not unique_tokens:
+        return
+
+    log(f"正在获取 {len(unique_tokens)} 个图片的预览 URL...")
+
+    # 逐个获取预览 URL
+    url_map = {}
+    for file_token in unique_tokens:
+        preview_url = get_file_preview_url(file_token, token)
+        if preview_url:
+            url_map[file_token] = preview_url
+
+    log(f"✓ 成功获取 {len(url_map)} 个预览 URL")
+
+    # 更新记录中的图片 URL
+    for record in records:
+        image_value = record.get("fields", {}).get("image")
+        if image_value and isinstance(image_value, list):
+            for attachment in image_value:
+                if isinstance(attachment, dict) and "file_token" in attachment:
+                    file_token = attachment["file_token"]
+                    if file_token in url_map:
+                        attachment["public_url"] = url_map[file_token]
+
+
 def field_value(record, field_name):
     """从多维表格记录中获取字段值，支持不同类型"""
     fields = record.get("fields", {})
@@ -118,48 +149,18 @@ def field_value(record, field_name):
         # 处理附件类型（图片等）
         if len(value) > 0 and isinstance(value[0], dict):
             attachment = value[0]
-            # 优先使用直接返回的 URL
+            # 优先使用处理后的公共 URL
+            if "public_url" in attachment and attachment["public_url"]:
+                return attachment["public_url"]
+            # 然后使用 tmp_url
             if "tmp_url" in attachment:
                 return attachment["tmp_url"]
+            # 然后使用 url
             if "url" in attachment:
                 return attachment["url"]
-            if "download_url" in attachment:
-                return attachment["download_url"]
-            if "preview_url" in attachment:
-                return attachment["preview_url"]
         return str(value[0]) if len(value) == 1 else ", ".join(str(v) for v in value)
 
     return str(value)
-
-
-def process_image_urls(records, token):
-    """处理所有记录的图片字段，获取临时预览 URL"""
-    all_file_tokens = []
-
-    # 收集所有图片的 file_token
-    for record in records:
-        image_value = record.get("fields", {}).get("image")
-        if image_value and isinstance(image_value, list):
-            for attachment in image_value:
-                if isinstance(attachment, dict) and "file_token" in attachment:
-                    all_file_tokens.append(attachment["file_token"])
-
-    if not all_file_tokens:
-        return
-
-    log(f"正在获取 {len(all_file_tokens)} 个图片的预览 URL...")
-    url_map = get_image_preview_url(all_file_tokens, token)
-    log(f"✓ 成功获取 {len(url_map)} 个预览 URL")
-
-    # 更新记录中的图片 URL
-    for record in records:
-        image_value = record.get("fields", {}).get("image")
-        if image_value and isinstance(image_value, list):
-            for attachment in image_value:
-                if isinstance(attachment, dict) and "file_token" in attachment:
-                    file_token = attachment["file_token"]
-                    if file_token in url_map:
-                        attachment["tmp_url"] = url_map[file_token]
 
 
 def generate_journal_entries(records, section):
