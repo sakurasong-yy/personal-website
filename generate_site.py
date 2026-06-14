@@ -2,13 +2,11 @@
 import os
 import requests
 import sys
-import json
 
 FEISHU_APP_ID = os.environ.get('FEISHU_APP_ID')
 FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET')
-FEISHU_TABLE_ID = os.environ.get('FEISHU_TABLE_ID')  # 格式: app_token/table_id
-BITABLE_APP_TOKEN = os.environ.get('FEISHU_APP_TOKEN')  # 多维表格的 app_token
-BITABLE_TABLE_ID = os.environ.get('FEISHU_BITABLE_TABLE_ID')  # 数据表的 table_id
+FEISHU_APP_TOKEN = os.environ.get('FEISHU_APP_TOKEN')
+FEISHU_BITABLE_TABLE_ID = os.environ.get('FEISHU_BITABLE_TABLE_ID')
 
 
 def log(message):
@@ -43,11 +41,11 @@ def get_feishu_token():
 
 def get_bitable_records(token):
     """从多维表格获取数据"""
-    if not BITABLE_APP_TOKEN or not BITABLE_TABLE_ID:
+    if not FEISHU_APP_TOKEN or not FEISHU_BITABLE_TABLE_ID:
         log("ERROR: FEISHU_APP_TOKEN 或 FEISHU_BITABLE_TABLE_ID 未设置")
         sys.exit(1)
 
-    url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{BITABLE_APP_TOKEN}/tables/{BITABLE_TABLE_ID}/records"
+    url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{FEISHU_APP_TOKEN}/tables/{FEISHU_BITABLE_TABLE_ID}/records"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
@@ -64,46 +62,6 @@ def get_bitable_records(token):
 
         records = result.get("data", {}).get("items", [])
         log(f"✓ 成功获取 {len(records)} 条记录")
-
-        return records
-    except Exception as e:
-        log(f"ERROR: 获取数据异常: {e}")
-        sys.exit(1)
-
-
-def get_spreadsheet_records(token):
-    """从普通表格获取数据（备用方案）"""
-    if not FEISHU_TABLE_ID:
-        log("ERROR: FEISHU_TABLE_ID 未设置")
-        sys.exit(1)
-
-    url = f"https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/{FEISHU_TABLE_ID}/values/A1:Z100"
-    headers = {"Authorization": f"Bearer {token}"}
-
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-
-        if result.get("code") != 0:
-            log(f"ERROR: 获取数据失败: {result}")
-            sys.exit(1)
-
-        values = result.get("data", {}).get("valueRange", {}).get("values", [])
-        log(f"✓ 成功获取 {len(values)} 行数据")
-
-        if not values:
-            return []
-
-        # 第一行是表头
-        headers = values[0]
-        records = []
-
-        for row in values[1:]:
-            record = {}
-            for i, header in enumerate(headers):
-                record[header] = row[i] if i < len(row) else ""
-            records.append(record)
 
         return records
     except Exception as e:
@@ -384,13 +342,8 @@ if __name__ == "__main__":
     # 获取飞书 token
     token = get_feishu_token()
 
-    # 优先使用多维表格 API
-    if BITABLE_APP_TOKEN and BITABLE_TABLE_ID:
-        log("使用多维表格 API 获取数据...")
-        records = get_bitable_records(token)
-    else:
-        log("使用普通表格 API 获取数据...")
-        records = get_spreadsheet_records(token)
+    # 从多维表格获取数据
+    records = get_bitable_records(token)
 
     # 输出记录信息（用于调试）
     if records:
