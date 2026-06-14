@@ -1,149 +1,211 @@
 #!/usr/bin/env python3
 import os
 import requests
+import sys
 import json
 
-APP_ID = os.environ.get('FEISHU_APP_ID')
-APP_SECRET = os.environ.get('FEISHU_APP_SECRET')
-TABLE_ID = os.environ.get('FEISHU_TABLE_ID')
+FEISHU_APP_ID = os.environ.get('FEISHU_APP_ID')
+FEISHU_APP_SECRET = os.environ.get('FEISHU_APP_SECRET')
+FEISHU_TABLE_ID = os.environ.get('FEISHU_TABLE_ID')  # 格式: app_token/table_id
+BITABLE_APP_TOKEN = os.environ.get('FEISHU_APP_TOKEN')  # 多维表格的 app_token
+BITABLE_TABLE_ID = os.environ.get('FEISHU_BITABLE_TABLE_ID')  # 数据表的 table_id
+
+
+def log(message):
+    print(f"[DEBUG] {message}")
+
 
 def get_feishu_token():
+    """获取飞书 tenant_access_token"""
+    if not FEISHU_APP_ID or not FEISHU_APP_SECRET:
+        log("ERROR: FEISHU_APP_ID 或 FEISHU_APP_SECRET 未设置")
+        sys.exit(1)
+
+    url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+    headers = {"Content-Type": "application/json"}
+    data = {"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET}
+
     try:
-        url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
-        headers = {"Content-Type": "application/json"}
-        data = {"app_id": APP_ID, "app_secret": APP_SECRET}
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        
-        # 检查响应状态码
-        if response.status_code != 200:
-            print(f"❌ 飞书 API 返回错误状态码: {response.status_code}")
-            print(f"❌ 响应内容: {response.text[:200]}")
-            return None
-        
-        # 尝试解析 JSON
-        try:
-            result = response.json()
-        except json.JSONDecodeError as e:
-            print(f"❌ 解析 Token 响应失败: {str(e)}")
-            print(f"❌ 响应内容: {response.text[:200]}")
-            return None
-        
-        if "tenant_access_token" not in result:
-            print(f"❌ 飞书 API 未返回 Token: {result}")
-            return None
-        
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("code") != 0:
+            log(f"ERROR: 获取 token 失败: {result}")
+            sys.exit(1)
+
+        log("✓ 成功获取 tenant_access_token")
         return result["tenant_access_token"]
     except Exception as e:
-        print(f"❌ 获取 Token 失败: {str(e)}")
-        return None
+        log(f"ERROR: 获取 token 异常: {e}")
+        sys.exit(1)
 
-def get_table_records(token):
+
+def get_bitable_records(token):
+    """从多维表格获取数据"""
+    if not BITABLE_APP_TOKEN or not BITABLE_TABLE_ID:
+        log("ERROR: FEISHU_APP_TOKEN 或 FEISHU_BITABLE_TABLE_ID 未设置")
+        sys.exit(1)
+
+    url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{BITABLE_APP_TOKEN}/tables/{BITABLE_TABLE_ID}/records"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
     try:
-        url = f"https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/{TABLE_ID}/values/A1:Z100"
-        headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(url, headers=headers, timeout=30)
-        
-        # 检查响应状态码
-        if response.status_code != 200:
-            print(f"❌ 获取表格数据失败，状态码: {response.status_code}")
-            print(f"❌ 响应内容: {response.text[:200]}")
-            return {"data": {"valueRange": {"values": []}}}
-        
-        # 尝试解析 JSON
-        try:
-            return response.json()
-        except json.JSONDecodeError as e:
-            print(f"❌ 解析表格数据失败: {str(e)}")
-            print(f"❌ 响应内容: {response.text[:200]}")
-            return {"data": {"valueRange": {"values": []}}}
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("code") != 0:
+            log(f"ERROR: 获取数据失败: {result}")
+            sys.exit(1)
+
+        records = result.get("data", {}).get("items", [])
+        log(f"✓ 成功获取 {len(records)} 条记录")
+
+        return records
     except Exception as e:
-        print(f"❌ 获取表格数据失败: {str(e)}")
-        return {"data": {"valueRange": {"values": []}}}
+        log(f"ERROR: 获取数据异常: {e}")
+        sys.exit(1)
 
-def extract_image_url(image_value):
-    if not image_value:
-        return ""
-    
+
+def get_spreadsheet_records(token):
+    """从普通表格获取数据（备用方案）"""
+    if not FEISHU_TABLE_ID:
+        log("ERROR: FEISHU_TABLE_ID 未设置")
+        sys.exit(1)
+
+    url = f"https://open.feishu.cn/open-apis/sheets/v2/spreadsheets/{FEISHU_TABLE_ID}/values/A1:Z100"
+    headers = {"Authorization": f"Bearer {token}"}
+
     try:
-        image_data = json.loads(image_value)
-        if isinstance(image_data, list) and len(image_data) > 0:
-            if 'url' in image_data[0] and image_data[0]['url']:
-                return image_data[0]['url']
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("code") != 0:
+            log(f"ERROR: 获取数据失败: {result}")
+            sys.exit(1)
+
+        values = result.get("data", {}).get("valueRange", {}).get("values", [])
+        log(f"✓ 成功获取 {len(values)} 行数据")
+
+        if not values:
+            return []
+
+        # 第一行是表头
+        headers = values[0]
+        records = []
+
+        for row in values[1:]:
+            record = {}
+            for i, header in enumerate(headers):
+                record[header] = row[i] if i < len(row) else ""
+            records.append(record)
+
+        return records
+    except Exception as e:
+        log(f"ERROR: 获取数据异常: {e}")
+        sys.exit(1)
+
+
+def field_value(record, field_name):
+    """从多维表格记录中获取字段值，支持不同类型"""
+    fields = record.get("fields", {})
+    value = fields.get(field_name)
+
+    if value is None:
         return ""
-    except:
-        return image_value if image_value.startswith('http') else ""
+
+    # 处理不同的字段类型
+    if isinstance(value, list):
+        if not value:
+            return ""
+        # 处理附件类型（图片等）
+        if len(value) > 0 and isinstance(value[0], dict) and "file_token" in value[0]:
+            # 返回图片的 URL
+            file_token = value[0].get("file_token")
+            return f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/download/"
+        return str(value[0]) if len(value) == 1 else ", ".join(str(v) for v in value)
+
+    return str(value)
+
 
 def generate_journal_entries(records, section):
-    entries = [r for r in records if r.get('section') == section]
+    entries = [r for r in records if field_value(r, 'section') == section]
     html = ""
     for entry in entries:
-        image_url = extract_image_url(entry.get('image', ''))
+        image = field_value(entry, 'image')
+        date = field_value(entry, 'date')
+        title = field_value(entry, 'title')
+        desc = field_value(entry, 'desc')
+
         html += f"""<article class="journal-entry">
             <div class="journal-date">
-                <span class="date-day">{entry.get('date', '1')}</span>
+                <span class="date-day">{date}</span>
             </div>
             <div class="journal-content journal-content-block">
-                <h3>{entry.get('title', '')}</h3>
-                {f'<img src="{image_url}" alt="" class="journal-image">' if image_url else ''}
-                <p>{entry.get('desc', '')}</p>
+                <h3>{title}</h3>
+                {f'<img src="{image}" alt="" class="journal-image">' if image else ''}
+                <p>{desc}</p>
             </div>
         </article>"""
     return html
 
+
 def generate_travel_cards(records):
-    entries = [r for r in records if r.get('section') == '行・足迹']
+    entries = [r for r in records if field_value(r, 'section') == '行・足迹']
     html = ""
     for entry in entries:
-        image_url = extract_image_url(entry.get('image', ''))
+        image = field_value(entry, 'image')
+        title = field_value(entry, 'title')
         html += f"""<div class="travel-card">
-            <img src="{image_url}" alt="{entry.get('title', '')}">
+            <img src="{image}" alt="{title}">
         </div>"""
     return html
 
+
 def generate_read_watch_cards(records):
-    entries = [r for r in records if r.get('section') == '阅・视界']
+    entries = [r for r in records if field_value(r, 'section') == '阅・视界']
     html = ""
     for entry in entries:
-        image_url = extract_image_url(entry.get('image', ''))
+        image = field_value(entry, 'image')
+        meta = field_value(entry, 'meta')
+        title = field_value(entry, 'title')
+        desc = field_value(entry, 'desc')
         html += f"""<article class="card">
             <div class="card-image">
-                <img src="{image_url}" alt="">
+                <img src="{image}" alt="">
             </div>
-            <div class="card-meta">{entry.get('meta', '')}</div>
-            <h3 class="card-title">{entry.get('title', '')}</h3>
-            <p class="card-desc">{entry.get('desc', '')}</p>
+            <div class="card-meta">{meta}</div>
+            <h3 class="card-title">{title}</h3>
+            <p class="card-desc">{desc}</p>
         </article>"""
     return html
+
 
 def generate_thought_entries(records):
-    entries = [r for r in records if r.get('section') == '思・杂谈']
+    entries = [r for r in records if field_value(r, 'section') == '思・杂谈']
     html = ""
     for entry in entries:
+        date = field_value(entry, 'date')
+        title = field_value(entry, 'title')
+        desc = field_value(entry, 'desc')
         html += f"""<article class="journal-entry">
             <div class="journal-date">
-                <span class="date-day">{entry.get('date', '1')}</span>
+                <span class="date-day">{date}</span>
             </div>
             <div class="journal-content">
-                <h3>{entry.get('title', '')}</h3>
-                <p>{entry.get('desc', '')}</p>
+                <h3>{title}</h3>
+                <p>{desc}</p>
             </div>
         </article>"""
     return html
 
-def generate_html(data):
-    records = []
-    try:
-        if "valueRange" in data.get("data", {}):
-            headers = data["data"]["valueRange"]["values"][0] if data["data"]["valueRange"]["values"] else []
-            for row in data["data"]["valueRange"]["values"][1:]:
-                record = {}
-                for i, header in enumerate(headers):
-                    record[header] = row[i] if i < len(row) else ""
-                records.append(record)
-        print(f"✅ 成功读取 {len(records)} 条记录")
-    except Exception as e:
-        print(f"⚠️ 解析数据时出现警告: {str(e)}")
-    
+
+def generate_html(records):
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -174,7 +236,7 @@ def generate_html(data):
         img {{ max-width: 100%; height: auto; display: block; background: #f8f8f8; }}
         .container {{ width: 92%; max-width: var(--container-width); margin: 0 auto; }}
         .section {{ padding: calc(var(--spacing-unit) * 12) 0; }}
-        
+
         .navbar {{
             padding: calc(var(--spacing-unit) * 3) 0;
             position: sticky; top: 0;
@@ -252,6 +314,7 @@ def generate_html(data):
                 <a href="#footprints">行・足迹</a>
                 <a href="#read-watch">阅・视界</a>
                 <a href="#thoughts">思・杂谈</a>
+                <a href="plant-identifier.html">花草识别</a>
             </div>
         </div>
     </nav>
@@ -310,35 +373,37 @@ def generate_html(data):
     </footer>
 </body>
 </html>"""
-    
     return html
 
+
 if __name__ == "__main__":
-    print("🔄 开始生成网站...")
-    
-    # 检查环境变量
-    if not APP_ID or not APP_SECRET or not TABLE_ID:
-        print("❌ 缺少环境变量！请设置 FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_TABLE_ID")
-        exit(1)
-    
-    # 获取 Token
+    log("=" * 50)
+    log("开始生成网站...")
+    log("=" * 50)
+
+    # 获取飞书 token
     token = get_feishu_token()
-    if not token:
-        print("❌ 无法获取飞书 Token")
-        exit(1)
-    print("✅ 成功获取飞书 Token")
-    
-    # 获取表格数据
-    data = get_table_records(token)
-    
+
+    # 优先使用多维表格 API
+    if BITABLE_APP_TOKEN and BITABLE_TABLE_ID:
+        log("使用多维表格 API 获取数据...")
+        records = get_bitable_records(token)
+    else:
+        log("使用普通表格 API 获取数据...")
+        records = get_spreadsheet_records(token)
+
+    # 输出记录信息（用于调试）
+    if records:
+        log(f"第一条记录的字段: {list(records[0].get('fields', {}).keys())}")
+        log(f"第一条记录的 section 值: {field_value(records[0], 'section')}")
+
     # 生成 HTML
-    html = generate_html(data)
-    
-    # 保存文件
-    try:
-        with open('index.html', 'w', encoding='utf-8') as f:
-            f.write(html)
-        print("✅ HTML 生成成功！")
-    except Exception as e:
-        print(f"❌ 保存文件失败: {str(e)}")
-        exit(1)
+    html = generate_html(records)
+
+    # 写入文件
+    with open('index.html', 'w', encoding='utf-8') as f:
+        f.write(html)
+
+    log("=" * 50)
+    log("✓ HTML 生成成功!")
+    log("=" * 50)
