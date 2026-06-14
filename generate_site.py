@@ -39,6 +39,28 @@ def get_feishu_token():
         sys.exit(1)
 
 
+def get_image_url(file_token, tenant_access_token):
+    """获取飞书图片的临时访问 URL"""
+    url = f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/download/"
+    headers = {
+        "Authorization": f"Bearer {tenant_access_token}",
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+
+        if result.get("code") != 0:
+            log(f"ERROR: 获取图片 URL 失败: {result}")
+            return ""
+
+        return result.get("data", {}).get("url", "")
+    except Exception as e:
+        log(f"ERROR: 获取图片 URL 异常: {e}")
+        return ""
+
+
 def get_bitable_records(token):
     """从多维表格获取数据"""
     if not FEISHU_APP_TOKEN or not FEISHU_BITABLE_TABLE_ID:
@@ -63,13 +85,13 @@ def get_bitable_records(token):
         records = result.get("data", {}).get("items", [])
         log(f"✓ 成功获取 {len(records)} 条记录")
 
-        return records
+        return records, token
     except Exception as e:
         log(f"ERROR: 获取数据异常: {e}")
         sys.exit(1)
 
 
-def field_value(record, field_name):
+def field_value(record, field_name, token=None):
     """从多维表格记录中获取字段值，支持不同类型"""
     fields = record.get("fields", {})
     value = fields.get(field_name)
@@ -83,22 +105,23 @@ def field_value(record, field_name):
             return ""
         # 处理附件类型（图片等）
         if len(value) > 0 and isinstance(value[0], dict) and "file_token" in value[0]:
-            # 返回图片的 URL
             file_token = value[0].get("file_token")
-            return f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/download/"
+            if token:
+                return get_image_url(file_token, token)
+            return ""
         return str(value[0]) if len(value) == 1 else ", ".join(str(v) for v in value)
 
     return str(value)
 
 
-def generate_journal_entries(records, section):
-    entries = [r for r in records if field_value(r, 'section') == section]
+def generate_journal_entries(records, token, section):
+    entries = [r for r in records if field_value(r, 'section', token) == section]
     html = ""
     for entry in entries:
-        image = field_value(entry, 'image')
-        date = field_value(entry, 'date')
-        title = field_value(entry, 'title')
-        desc = field_value(entry, 'desc')
+        image = field_value(entry, 'image', token)
+        date = field_value(entry, 'date', token)
+        title = field_value(entry, 'title', token)
+        desc = field_value(entry, 'desc', token)
 
         html += f"""<article class="journal-entry">
             <div class="journal-date">
@@ -113,26 +136,26 @@ def generate_journal_entries(records, section):
     return html
 
 
-def generate_travel_cards(records):
-    entries = [r for r in records if field_value(r, 'section') == '行・足迹']
+def generate_travel_cards(records, token):
+    entries = [r for r in records if field_value(r, 'section', token) == '行・足迹']
     html = ""
     for entry in entries:
-        image = field_value(entry, 'image')
-        title = field_value(entry, 'title')
+        image = field_value(entry, 'image', token)
+        title = field_value(entry, 'title', token)
         html += f"""<div class="travel-card">
             <img src="{image}" alt="{title}">
         </div>"""
     return html
 
 
-def generate_read_watch_cards(records):
-    entries = [r for r in records if field_value(r, 'section') == '阅・视界']
+def generate_read_watch_cards(records, token):
+    entries = [r for r in records if field_value(r, 'section', token) == '阅・视界']
     html = ""
     for entry in entries:
-        image = field_value(entry, 'image')
-        meta = field_value(entry, 'meta')
-        title = field_value(entry, 'title')
-        desc = field_value(entry, 'desc')
+        image = field_value(entry, 'image', token)
+        meta = field_value(entry, 'meta', token)
+        title = field_value(entry, 'title', token)
+        desc = field_value(entry, 'desc', token)
         html += f"""<article class="card">
             <div class="card-image">
                 <img src="{image}" alt="">
@@ -144,13 +167,13 @@ def generate_read_watch_cards(records):
     return html
 
 
-def generate_thought_entries(records):
-    entries = [r for r in records if field_value(r, 'section') == '思・杂谈']
+def generate_thought_entries(records, token):
+    entries = [r for r in records if field_value(r, 'section', token) == '思・杂谈']
     html = ""
     for entry in entries:
-        date = field_value(entry, 'date')
-        title = field_value(entry, 'title')
-        desc = field_value(entry, 'desc')
+        date = field_value(entry, 'date', token)
+        title = field_value(entry, 'title', token)
+        desc = field_value(entry, 'desc', token)
         html += f"""<article class="journal-entry">
             <div class="journal-date">
                 <span class="date-day">{date}</span>
@@ -163,7 +186,7 @@ def generate_thought_entries(records):
     return html
 
 
-def generate_html(records):
+def generate_html(records, token):
     html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -272,7 +295,6 @@ def generate_html(records):
                 <a href="#footprints">行・足迹</a>
                 <a href="#read-watch">阅・视界</a>
                 <a href="#thoughts">思・杂谈</a>
-                <a href="plant-identifier.html">花草识别</a>
             </div>
         </div>
     </nav>
@@ -291,7 +313,7 @@ def generate_html(records):
         <div class="container">
             <h2>家・时光</h2>
             <div class="journal-list">
-                {generate_journal_entries(records, '家・时光')}
+                {generate_journal_entries(records, token, '家・时光')}
             </div>
         </div>
     </section>
@@ -300,7 +322,7 @@ def generate_html(records):
         <div class="container">
             <h2>行・足迹</h2>
             <div class="travel-grid">
-                {generate_travel_cards(records)}
+                {generate_travel_cards(records, token)}
             </div>
         </div>
     </section>
@@ -309,7 +331,7 @@ def generate_html(records):
         <div class="container">
             <h2>阅・视界</h2>
             <div class="grid-cards">
-                {generate_read_watch_cards(records)}
+                {generate_read_watch_cards(records, token)}
             </div>
         </div>
     </section>
@@ -318,7 +340,7 @@ def generate_html(records):
         <div class="container">
             <h2>思・杂谈</h2>
             <div class="journal-list">
-                {generate_thought_entries(records)}
+                {generate_thought_entries(records, token)}
             </div>
         </div>
     </section>
@@ -343,15 +365,15 @@ if __name__ == "__main__":
     token = get_feishu_token()
 
     # 从多维表格获取数据
-    records = get_bitable_records(token)
+    records, token = get_bitable_records(token)
 
     # 输出记录信息（用于调试）
     if records:
         log(f"第一条记录的字段: {list(records[0].get('fields', {}).keys())}")
-        log(f"第一条记录的 section 值: {field_value(records[0], 'section')}")
+        log(f"第一条记录的 section 值: {field_value(records[0], 'section', token)}")
 
     # 生成 HTML
-    html = generate_html(records)
+    html = generate_html(records, token)
 
     # 写入文件
     with open('index.html', 'w', encoding='utf-8') as f:
