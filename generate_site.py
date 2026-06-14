@@ -84,8 +84,17 @@ def get_image_preview_url(file_token, token):
 
     try:
         response = requests.post(url, headers=headers, json=data)
-        result = response.json()
+        log(f"  Response status: {response.status_code}")
+        log(f"  Response headers: {dict(response.headers)}")
 
+        # 尝试解析 JSON
+        try:
+            result = response.json()
+            log(f"  Response body: {result}")
+        except:
+            log(f"  Response is not JSON, raw text: {response.text[:200]}")
+
+        result = response.json()
         if result.get("code") != 0:
             log(f"ERROR: 获取图片预览 URL 失败: {result}")
             return ""
@@ -119,7 +128,14 @@ def process_image_urls(records, token):
 
     log(f"正在获取 {len(unique_tokens)} 个图片的预览 URL...")
 
-    # 逐个获取预览 URL
+    # 只处理第一个图片用于调试
+    first_token = list(unique_tokens)[0]
+    log(f"测试第一个图片的 file_token: {first_token}")
+    preview_url = get_image_preview_url(first_token, token)
+    if preview_url:
+        log(f"✓ 成功获取预览 URL: {preview_url}")
+
+    # 暂时只处理第一个
     url_map = {}
     for file_token in unique_tokens:
         preview_url = get_image_preview_url(file_token, token)
