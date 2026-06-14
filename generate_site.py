@@ -69,26 +69,37 @@ def get_bitable_records(token):
         sys.exit(1)
 
 
-def get_file_info(file_token, token):
-    """获取文件信息"""
-    url = f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}"
+def get_image_preview_url(file_token, token):
+    """获取图片的预览 URL（使用 POST 方法）"""
+    url = f"https://open.feishu.cn/open-apis/drive/v1/files/{file_token}/preview/"
     headers = {
         "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "type": "image",
+        "width": 1200,
+        "height": 1200
     }
 
     try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
+        response = requests.post(url, headers=headers, json=data)
         result = response.json()
 
         if result.get("code") != 0:
-            log(f"ERROR: 获取文件信息失败: {result}")
-            return {}
+            log(f"ERROR: 获取图片预览 URL 失败: {result}")
+            return ""
 
-        return result.get("data", {})
+        # 飞书返回的预览 URL
+        preview_url = result.get("data", {}).get("preview_url", "")
+        if not preview_url:
+            # 尝试其他可能的字段
+            preview_url = result.get("data", {}).get("url", "")
+
+        return preview_url
     except Exception as e:
-        log(f"ERROR: 获取文件信息异常: {e}")
-        return {}
+        log(f"ERROR: 获取图片预览 URL 异常: {e}")
+        return ""
 
 
 def process_image_urls(records, token):
@@ -106,26 +117,16 @@ def process_image_urls(records, token):
     if not unique_tokens:
         return
 
-    log(f"正在获取 {len(unique_tokens)} 个图片的信息...")
+    log(f"正在获取 {len(unique_tokens)} 个图片的预览 URL...")
 
-    # 逐个获取文件信息
+    # 逐个获取预览 URL
     url_map = {}
     for file_token in unique_tokens:
-        file_info = get_file_info(file_token, token)
-        if file_info:
-            # 尝试不同的 URL 字段
-            url = file_info.get("url", "")
-            if not url:
-                url = file_info.get("download_url", "")
-            if not url:
-                url = file_info.get("preview_url", "")
-            if not url:
-                url = file_info.get("tmp_url", "")
+        preview_url = get_image_preview_url(file_token, token)
+        if preview_url:
+            url_map[file_token] = preview_url
 
-            if url:
-                url_map[file_token] = url
-
-    log(f"✓ 成功获取 {len(url_map)} 个图片 URL")
+    log(f"✓ 成功获取 {len(url_map)} 个预览 URL")
 
     # 更新记录中的图片 URL
     for record in records:
