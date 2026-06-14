@@ -16,47 +16,24 @@
             --spacing-unit: 8px;
             --container-width: 1024px;
         }
-
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: var(--font-primary);
-            background-color: var(--color-bg);
-            color: var(--color-text-main);
-            line-height: 1.7;
-            -webkit-font-smoothing: antialiased;
-        }
-
+        body { font-family: var(--font-primary); background: var(--color-bg); color: var(--color-text-main); line-height: 1.7; -webkit-font-smoothing: antialiased; }
         a { color: inherit; text-decoration: none; transition: opacity 0.2s; }
         a:hover { opacity: 0.7; }
-
         h1, h2, h3 { font-weight: 400; line-height: 1.3; letter-spacing: -0.5px; }
         h1 { font-size: 2.5rem; }
         h2 { font-size: 2rem; margin-bottom: calc(var(--spacing-unit) * 4); text-align: center; }
-        h3 { font-size: 1.25rem; margin-bottom: calc(var(--spacing-unit) * 1.5); }
+        h3 { font-size: 1.25rem; }
         p { margin-bottom: calc(var(--spacing-unit) * 2); }
-
-        img { max-width: 100%; height: auto; display: block; background-color: #f8f8f8; }
-
-        .container {
-            width: 92%;
-            max-width: var(--container-width);
-            margin: 0 auto;
-        }
-
-        .section {
-            padding: calc(var(--spacing-unit) * 12) 0;
-        }
+        img { max-width: 100%; height: auto; display: block; background: #f8f8f8; }
+        .container { width: 92%; max-width: var(--container-width); margin: 0 auto; }
+        .section { padding: calc(var(--spacing-unit) * 12) 0; }
 
         .navbar {
             padding: calc(var(--spacing-unit) * 3) 0;
-            position: sticky;
-            top: 0;
+            position: sticky; top: 0;
             background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(10px);
-            z-index: 100;
-            border-bottom: 1px solid transparent;
-            transition: border-color 0.3s;
+            backdrop-filter: blur(10px); z-index: 100;
         }
         .navbar-content { display: flex; justify-content: space-between; align-items: center; }
         .brand { font-family: var(--font-serif); font-size: 1.5rem; letter-spacing: 1px; }
@@ -65,18 +42,8 @@
         .nav-links a:hover { color: var(--color-text-main); }
 
         .hero { text-align: center; padding: calc(var(--spacing-unit) * 6) 0 calc(var(--spacing-unit) * 10); }
-        .hero-image-container {
-            height: 60vh;
-            min-height: 400px;
-            overflow: hidden;
-            margin-bottom: calc(var(--spacing-unit) * 5);
-        }
+        .hero-image-container { height: 60vh; min-height: 400px; overflow: hidden; margin-bottom: calc(var(--spacing-unit) * 5); }
         .hero-image { width: 100%; height: 100%; object-fit: cover; }
-        .hero-title { font-family: var(--font-serif); }
-        .hero-slogan {
-            font-family: var(--font-serif); font-size: 1.2rem; color: var(--color-text-muted);
-            margin-top: calc(var(--spacing-unit) * 2); font-style: italic;
-        }
 
         .grid-cards {
             display: grid;
@@ -85,110 +52,48 @@
         }
         .card { display: flex; flex-direction: column; }
         .card-image {
-            aspect-ratio: 3 / 4;
-            margin-bottom: calc(var(--spacing-unit) * 2.5);
-            overflow: hidden;
-            border-radius: 2px;
+            aspect-ratio: 3 / 4; margin-bottom: calc(var(--spacing-unit) * 2.5);
+            overflow: hidden; border-radius: 2px;
         }
-        .card-image-landscape { aspect-ratio: 16 / 10; }
         .card-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
         .card:hover .card-image img { transform: scale(1.03); }
         .card-meta {
             font-size: 0.75rem; color: var(--color-accent);
-            margin-bottom: calc(var(--spacing-unit) * 1);
             text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
         }
-        .card-title { font-size: 1.1rem; margin-bottom: calc(var(--spacing-unit) * 1); }
+        .card-title { font-size: 1.1rem; }
         .card-desc { font-size: 0.9rem; color: var(--color-text-muted); line-height: 1.5; }
 
         .journal-list { display: flex; flex-direction: column; gap: calc(var(--spacing-unit) * 10); }
         .journal-entry {
-            display: grid;
-            grid-template-columns: 120px 1fr;
-            gap: calc(var(--spacing-unit) * 6);
-            padding-bottom: calc(var(--spacing-unit) * 6);
+            display: grid; grid-template-columns: 120px 1fr;
+            gap: calc(var(--spacing-unit) * 6); padding-bottom: calc(var(--spacing-unit) * 6);
             border-bottom: 1px solid var(--color-border);
         }
         .journal-entry:last-child { border-bottom: none; }
-        .journal-date {
-            text-align: right; font-family: var(--font-serif); color: var(--color-text-muted);
-            position: sticky; top: 100px;
-            height: fit-content;
-        }
-        .date-year { font-size: 1rem; display: block; margin-bottom: 4px; }
-        .date-day { font-size: 2rem; font-weight: 700; color: var(--color-text-main); line-height: 1; }
-        .date-month { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
-        .journal-content h3 { font-size: 1.3rem; color: var(--color-text-main); margin-bottom: calc(var(--spacing-unit) * 2); }
-        .journal-content p { font-size: 0.95rem; color: var(--color-text-muted); line-height: 1.8; }
-        .journal-tags { display: flex; gap: calc(var(--spacing-unit) * 2); margin-top: calc(var(--spacing-unit) * 3); }
-        .journal-tag {
-            font-size: 0.75rem; color: var(--color-text-muted);
-            padding: 4px 12px; border: 1px solid var(--color-border); border-radius: 20px;
-        }
-
-        .journal-content-block h3 { font-size: 1.5rem; margin-bottom: calc(var(--spacing-unit) * 3); }
-        .journal-image {
-            width: 100%; margin-bottom: calc(var(--spacing-unit) * 4);
-            aspect-ratio: 16 / 9;
-            border-radius: 2px;
-        }
-        .journal-text p { font-size: 1.05rem; color: #444; }
+        .journal-date { text-align: right; font-family: var(--font-serif); color: var(--color-text-muted); }
+        .date-day { font-size: 2rem; font-weight: 700; color: var(--color-text-main); }
+        .journal-content-block h3 { font-size: 1.5rem; }
+        .journal-image { width: 100%; aspect-ratio: 16 / 9; border-radius: 2px; margin: calc(var(--spacing-unit) * 4) 0; }
 
         .travel-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: calc(var(--spacing-unit) * 3);
         }
         .travel-card { aspect-ratio: 1; overflow: hidden; border-radius: 2px; }
-        .travel-card img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
-        .travel-card:hover img { transform: scale(1.05); }
-        .travel-overlay {
-            background: rgba(0,0,0,0.5); color: white;
-            padding: calc(var(--spacing-unit) * 2);
-            opacity: 0; transition: opacity 0.3s;
-        }
-        .travel-card:hover .travel-overlay { opacity: 1; }
-        .travel-name { font-size: 0.9rem; font-weight: 500; }
-        .travel-count { font-size: 0.75rem; opacity: 0.8; }
-
-        .family-section { background-color: #fafafa; }
-        .family-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: calc(var(--spacing-unit) * 4);
-        }
-        .family-card {
-            background: white; padding: calc(var(--spacing-unit) * 4);
-            border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        }
-        .family-card img {
-            width: 80px; height: 80px; border-radius: 50%;
-            margin-bottom: calc(var(--spacing-unit) * 3);
-        }
-        .family-name { font-size: 1.1rem; font-weight: 500; margin-bottom: 4px; }
-        .family-role { font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: calc(var(--spacing-unit) * 2); }
-        .family-desc { font-size: 0.9rem; color: var(--color-text-muted); line-height: 1.6; }
+        .travel-card img { width: 100%; height: 100%; object-fit: cover; }
 
         .footer {
-            padding: calc(var(--spacing-unit) * 8) 0;
-            text-align: center; font-size: 0.85rem; color: var(--color-text-muted);
+            padding: calc(var(--spacing-unit) * 8) 0; text-align: center;
             border-top: 1px solid var(--color-border); margin-top: calc(var(--spacing-unit) * 4);
-            text-transform: uppercase; letter-spacing: 1px;
+            font-size: 0.85rem; color: var(--color-text-muted);
         }
 
         @media (max-width: 768px) {
-            .navbar-content { flex-direction: column; gap: calc(var(--spacing-unit) * 2); }
-            .nav-links { gap: calc(var(--spacing-unit) * 3); }
+            .journal-entry { grid-template-columns: 1fr; }
+            .journal-date { text-align: left; }
             h1 { font-size: 2rem; }
-            h2 { font-size: 1.75rem; margin-bottom: calc(var(--spacing-unit) * 3); }
-            .section { padding: calc(var(--spacing-unit) * 8) 0; }
-            .hero-image-container { height: 40vh; }
-            .journal-entry { grid-template-columns: 1fr; gap: calc(var(--spacing-unit) * 2); }
-            .journal-date {
-                text-align: left; position: static; margin-bottom: calc(var(--spacing-unit) * 1);
-                display: flex; align-items: baseline; gap: 8px;
-            }
-            .date-day { font-size: 1.5rem; }
+            h2 { font-size: 1.75rem; }
         }
     </style>
 </head>
@@ -201,7 +106,6 @@
                 <a href="#footprints">行・足迹</a>
                 <a href="#read-watch">阅・视界</a>
                 <a href="#thoughts">思・杂谈</a>
-                <a href="plant-identifier.html">花草识别</a>
             </div>
         </div>
     </nav>
@@ -212,7 +116,7 @@
                 <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=minimalist%20lifestyle%20journal%20aesthetic%20soft%20natural%20light%20cozy%20reading%20corner&image_size=landscape_16_9" alt="首页大图" class="hero-image">
             </div>
             <h1>记录生活，珍藏那些稍纵即逝的瞬间。</h1>
-            <p class="hero-slogan">— A minimalist chronicle of life and thoughts.</p>
+            <p style="font-family: var(--font-serif); font-size: 1.2rem; color: var(--color-text-muted); margin-top: calc(var(--spacing-unit) * 2); font-style: italic;">— A minimalist chronicle of life and thoughts.</p>
         </div>
     </header>
 
@@ -221,76 +125,35 @@
             <h2>家・时光</h2>
             <div class="journal-list">
                 <article class="journal-entry">
-                    <div class="journal-date">
-                        <span class="date-year">2024</span>
-                        <span class="date-day">12</span>
-                        <span class="date-month">二月</span>
-                    </div>
-                    <div class="journal-content journal-content-block">
-                        <h3>春节家庭聚会</h3>
-                        <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=chinese%20family%20gathering%20spring%20festival%20warm%20atmosphere&image_size=landscape_16_9" alt="家庭聚会" class="journal-image">
-                        <div class="journal-text">
-                            <p>今年的春节格外温馨。父母准备了满满一桌年夜饭，姐姐带着小外甥女回来，家里热闹非凡。看着孩子们嬉笑打闹，忽然意识到岁月流转，我们都在各自的人生轨道上前行，但家永远是最温暖的港湾。</p>
-                        </div>
-                        <div class="journal-tags">
-                            <span class="journal-tag">家庭</span>
-                            <span class="journal-tag">春节</span>
-                        </div>
-                    </div>
-                </article>
-                <article class="journal-entry">
-                    <div class="journal-date">
-                        <span class="date-year">2024</span>
-                        <span class="date-day">28</span>
-                        <span class="date-month">一月</span>
-                    </div>
-                    <div class="journal-content journal-content-block">
-                        <h3>父亲的书法</h3>
-                        <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=chinese%20calligraphy%20brush%20writing%20traditional%20art%20desk&image_size=landscape_16_9" alt="书法" class="journal-image">
-                        <div class="journal-text">
-                            <p>父亲退休后迷上了书法，每天都会练习几个小时。他写的"宁静致远"挂在客厅里，笔锋苍劲有力。看着他专注的神情，仿佛时光都慢了下来。这或许就是岁月沉淀下来的智慧与从容。</p>
-                        </div>
-                        <div class="journal-tags">
-                            <span class="journal-tag">父亲</span>
-                            <span class="journal-tag">书法</span>
-                        </div>
-                    </div>
-                </article>
+            <div class="journal-date">
+                <span class="date-day">1</span>
+            </div>
+            <div class="journal-content journal-content-block">
+                <h3>包包一周岁</h3>
+                
+                <p>和这个世界见面1年啦</p>
+            </div>
+        </article><article class="journal-entry">
+            <div class="journal-date">
+                <span class="date-day">1</span>
+            </div>
+            <div class="journal-content journal-content-block">
+                <h3>包包二周岁</h3>
+                
+                <p>和这个世界见面1年啦</p>
+            </div>
+        </article>
             </div>
         </div>
     </section>
 
-    <section id="footprints" class="section" style="background-color: #fafafa;">
+    <section id="footprints" class="section" style="background: #fafafa;">
         <div class="container">
             <h2>行・足迹</h2>
-            <div style="text-align: center; margin-bottom: calc(var(--spacing-unit) * 6);">
-                <p class="card-desc">走过 <span style="color: var(--color-text-main); font-weight: 600;">12</span> 个国家，<span style="color: var(--color-text-main); font-weight: 600;">58</span> 座城市</p>
-            </div>
             <div class="travel-grid">
-                <div class="travel-card" style="grid-column: span 2; grid-row: span 2;">
-                    <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=tokyo%20cityscape%20night%20lights%20modern%20urban%20photography&image_size=landscape_16_9" alt="东京">
-                </div>
                 <div class="travel-card">
-                    <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=paris%20eiffel%20tower%20romantic%20sunset%20minimal&image_size=square" alt="巴黎">
-                </div>
-                <div class="travel-card">
-                    <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=santorini%20greece%20white%20buildings%20blue%20sea%20minimal&image_size=square" alt="圣托里尼">
-                </div>
-                <div class="travel-card">
-                    <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=kyoto%20japan%20temple%20cherry%20blossom%20traditional&image_size=square" alt="京都">
-                </div>
-                <div class="travel-card">
-                    <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=swiss%20alps%20mountains%20snow%20landscape%20nature&image_size=square" alt="瑞士">
-                </div>
-                <div class="travel-card">
-                    <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=venice%20italy%20canal%20gondola%20romantic%20sunset&image_size=square" alt="威尼斯">
-                </div>
-                <div class="travel-card">
-                    <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=maldives%20beach%20crystal%20clear%20water%20tropical&image_size=square" alt="马尔代夫">
-                </div>
-                <div class="travel-card">
-                    <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=new%20york%20city%20skyline%20manhattan%20urban&image_size=square" alt="纽约">
-                </div>
+            <img src="" alt="安徽">
+        </div>
             </div>
         </div>
     </section>
@@ -299,91 +162,84 @@
         <div class="container">
             <h2>阅・视界</h2>
             <div class="grid-cards">
-                <a href="#" class="card">
-                    <div class="card-image">
-                        <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=book%20cover%20siddhartha%20minimalist%20literary%20soft%20watercolor&image_size=portrait_4_3" alt="悉达多封面">
-                    </div>
-                    <div class="card-meta">书籍 · ★★★★★</div>
-                    <h3 class="card-title">《悉达多》</h3>
-                    <p class="card-desc">关于探索自我内心世界最完美的寓言。文字优美如诗，常读常新。</p>
-                </a>
-                <a href="#" class="card">
-                    <div class="card-image">
-                        <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=chinese%20tv%20series%20poster%20mysterious%20atmosphere%20nostalgic&image_size=portrait_4_3" alt="漫长的季节海报">
-                    </div>
-                    <div class="card-meta">剧集 · 2023</div>
-                    <h3 class="card-title">《漫长的季节》</h3>
-                    <p class="card-desc">是悬疑剧，更是一曲时代挽歌。对人物命运的刻画入木三分，后劲极大。</p>
-                </a>
-                <a href="#" class="card">
-                    <div class="card-image">
-                        <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=book%20cover%20chinese%20economy%20analysis%20minimal%20design&image_size=portrait_4_3" alt="置身事内封面">
-                    </div>
-                    <div class="card-meta">书籍 · ★★★★☆</div>
-                    <h3 class="card-title">《置身事内》</h3>
-                    <p class="card-desc">清晰易懂地解读了中国政府与经济发展的逻辑，非常有启发性。</p>
-                </a>
-                <a href="#" class="card">
-                    <div class="card-image">
-                        <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=cinematic%20movie%20poster%20epic%20fantasy%20cinematic&image_size=portrait_4_3" alt="沙丘海报">
-                    </div>
-                    <div class="card-meta">电影 · 2021</div>
-                    <h3 class="card-title">《沙丘》</h3>
-                    <p class="card-desc">视觉与美学的盛宴，丹尼斯·维伦纽瓦的史诗级科幻巨作。</p>
-                </a>
+                <article class="card">
+            <div class="card-image">
+                <img src="" alt="">
+            </div>
+            <div class="card-meta">书籍 · ★★★★★</div>
+            <h3 class="card-title">《世上为什么要有图书管》</h3>
+            <p class="card-desc">陕西科技大学的一名文学老师，她时常在想：除了教书，我能不能走出校园，为社会做点什么？一次机会 她到西安市碑林区文化和旅游体育局挂职，任副局长。</p>
+        </article><article class="card">
+            <div class="card-image">
+                <img src="" alt="">
+            </div>
+            <div class="card-meta">书籍 · ★★★★★</div>
+            <h3 class="card-title">《世上为什么要有图书管》</h3>
+            <p class="card-desc">陕西科技大学的一名文学老师，她时常在想：除了教书，我能不能走出校园，为社会做点什么？一次机会 她到西安市碑林区文化和旅游体育局挂职，任副局长。</p>
+        </article><article class="card">
+            <div class="card-image">
+                <img src="" alt="">
+            </div>
+            <div class="card-meta">书籍 · ★★★★★</div>
+            <h3 class="card-title">《世上为什么要有图书管》</h3>
+            <p class="card-desc">陕西科技大学的一名文学老师，她时常在想：除了教书，我能不能走出校园，为社会做点什么？一次机会 她到西安市碑林区文化和旅游体育局挂职，任副局长。</p>
+        </article><article class="card">
+            <div class="card-image">
+                <img src="" alt="">
+            </div>
+            <div class="card-meta">电视 · ★★★★★</div>
+            <h3 class="card-title">《世上为什么要有图书管》</h3>
+            <p class="card-desc">陕西科技大学的一名文学老师，她时常在想：除了教书，我能不能走出校园，为社会做点什么？一次机会 她到西安市碑林区文化和旅游体育局挂职，任副局长。</p>
+        </article><article class="card">
+            <div class="card-image">
+                <img src="" alt="">
+            </div>
+            <div class="card-meta">电影 · ★★★★★</div>
+            <h3 class="card-title">《世上为什么要有图书管》</h3>
+            <p class="card-desc">陕西科技大学的一名文学老师，她时常在想：除了教书，我能不能走出校园，为社会做点什么？一次机会 她到西安市碑林区文化和旅游体育局挂职，任副局长。</p>
+        </article><article class="card">
+            <div class="card-image">
+                <img src="" alt="">
+            </div>
+            <div class="card-meta">书籍 · ★★★★★</div>
+            <h3 class="card-title">《世上为什么要有图书管》</h3>
+            <p class="card-desc">陕西科技大学的一名文学老师，她时常在想：除了教书，我能不能走出校园，为社会做点什么？一次机会 她到西安市碑林区文化和旅游体育局挂职，任副局长。</p>
+        </article>
             </div>
         </div>
     </section>
 
-    <section id="thoughts" class="section" style="background-color: #fafafa;">
+    <section id="thoughts" class="section" style="background: #fafafa;">
         <div class="container">
             <h2>思・杂谈</h2>
             <div class="journal-list">
                 <article class="journal-entry">
-                    <div class="journal-date">
-                        <span class="date-year">2024</span>
-                        <span class="date-day">15</span>
-                        <span class="date-month">三月</span>
-                    </div>
-                    <div class="journal-content">
-                        <h3>关于阅读的意义</h3>
-                        <p>阅读是一场心灵的旅行，它让我们在文字中体验不同的人生，理解多样的世界。每一本书都是一扇通往未知的门，带领我们超越时间和空间的限制。在这个信息碎片化的时代，深度阅读变得愈发珍贵，它让我们能够静下心来，与伟大的思想对话。</p>
-                        <div class="journal-tags">
-                            <span class="journal-tag">阅读</span>
-                            <span class="journal-tag">思考</span>
-                        </div>
-                    </div>
-                </article>
-                <article class="journal-entry">
-                    <div class="journal-date">
-                        <span class="date-year">2024</span>
-                        <span class="date-day">8</span>
-                        <span class="date-month">三月</span>
-                    </div>
-                    <div class="journal-content">
-                        <h3>慢生活的艺术</h3>
-                        <p>在这个追求效率和速度的时代，学会慢下来是一种智慧。慢不是懒惰，而是用心感受生活的每一个瞬间。一杯茶、一本书、一次散步，都可以成为生活中的小确幸。我们不需要总是奔跑，有时候停下来欣赏沿途的风景，反而能让我们走得更远。</p>
-                        <div class="journal-tags">
-                            <span class="journal-tag">生活</span>
-                            <span class="date-day">感悟</span>
-                        </div>
-                    </div>
-                </article>
-                <article class="journal-entry">
-                    <div class="journal-date">
-                        <span class="date-year">2024</span>
-                        <span class="date-day">1</span>
-                        <span class="date-month">三月</span>
-                    </div>
-                    <div class="journal-content">
-                        <h3>旅行的意义</h3>
-                        <p>旅行不仅仅是去远方，更是一种自我发现的过程。在陌生的城市中，我们看到不同的文化、不同的生活方式，这让我们重新审视自己的生活。每一次旅行都是一次成长，它教会我们开放、包容和感恩。最美的风景永远在路上，最好的自己永远在远方。</p>
-                        <div class="journal-tags">
-                            <span class="journal-tag">旅行</span>
-                            <span class="journal-tag">成长</span>
-                        </div>
-                    </div>
-                </article>
+            <div class="journal-date">
+                <span class="date-day"></span>
+            </div>
+            <div class="journal-content">
+                <h3>关于阅读的意义</h3>
+                <p>读是一场心灵的旅行，它让我们在文字中体验不同的人生，理解多样的世界。每一本书都是一扇通往未知的门，带领我们超越时间和空间的限制。在这个信息碎片化的时代，深度阅读变得愈发珍贵，它让我们能够静下心来，与伟大的思想对话。</p>
+            </div>
+        </article><article class="journal-entry">
+            <div class="journal-date">
+                <span class="date-day"></span>
+            </div>
+            <div class="journal-content">
+                <h3>慢生活的艺术</h3>
+                <p>在这个追求效率和速度的时代，学会慢下来是一种智慧。慢不是懒惰，而是用心感受生活的每一个瞬间。一杯茶、一本书、一次散步，都可以成为生活中的小确幸。我们不需要总是奔跑，有时候停下来欣赏沿途的风景，反而能让我们走得更远。</p>
+            </div>
+        </article><article class="journal-entry">
+            <div class="journal-date">
+                <span class="date-day"></span>
+            </div>
+            <div class="journal-content">
+                <h3>旅行的意义</h3>
+                <p>旅行不仅仅是去远方，更是一种自我发现的过程。在陌生的城市中，我们看到不同的文化、不同的生活方式，这让我们重新审视自己的生活。每一次旅行都是一次成长，它教会我们开放、包容和感恩。最美的风景永远在路上，最好的自己永远在远方。
+旅行
+</p>
+            </div>
+        </article>
             </div>
         </div>
     </section>
